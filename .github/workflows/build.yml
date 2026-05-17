@@ -19,6 +19,37 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Diagnose environment
+        run: |
+          export DEVKITPRO=/opt/devkitpro
+          export DEVKITARM=$DEVKITPRO/devkitARM
+          export PATH=$DEVKITARM/bin:$DEVKITPRO/tools/bin:$PATH
+          echo "=== Compiler ==="
+          arm-none-eabi-gcc --version
+          echo "=== Tools ==="
+          which 3dsxtool  && 3dsxtool  --version 2>/dev/null || echo "3dsxtool missing"
+          which smdhtool  && smdhtool  --version 2>/dev/null || echo "smdhtool missing"
+          which makerom   2>/dev/null  || echo "makerom missing"
+          echo "=== devkitPro layout ==="
+          ls /opt/devkitpro/
+          echo "=== libctru ==="
+          ls /opt/devkitpro/libctru/lib/ 2>/dev/null || echo "libctru/lib missing"
+          echo "=== specs ==="
+          find /opt/devkitpro -name "3dsx.specs" 2>/dev/null || echo "3dsx.specs not found"
+          echo "=== pacman list ==="
+          /opt/devkitpro/pacman/bin/pacman -Q 2>/dev/null || true
+
+      - name: Install missing 3DS tools if needed
+        run: |
+          export DEVKITPRO=/opt/devkitpro
+          # Only install if 3dsxtool is missing
+          if ! command -v 3dsxtool >/dev/null 2>&1; then
+            echo "Installing 3ds-dev..."
+            /opt/devkitpro/pacman/bin/pacman -S --noconfirm 3ds-dev || true
+          else
+            echo "3dsxtool already present, skipping install"
+          fi
+
       - name: Build
         run: |
           export DEVKITPRO=/opt/devkitpro
@@ -30,8 +61,8 @@ jobs:
                AS=$DEVKITARM/bin/arm-none-eabi-as \
                AR=$DEVKITARM/bin/arm-none-eabi-ar \
                OBJCOPY=$DEVKITARM/bin/arm-none-eabi-objcopy
-          echo "=== Build output ==="
-          find . -name "*.3dsx" -o -name "*.smdh" | sort
+          echo "=== Output files ==="
+          find . -name "*.3dsx" -o -name "*.smdh" -o -name "*.elf" | sort
 
       - name: Upload .3dsx artifact
         uses: actions/upload-artifact@v4
