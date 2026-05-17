@@ -722,8 +722,14 @@ int main(void) {
     gfxInitDefault();
     consoleInit(GFX_BOTTOM, NULL);
 
-    // CFW fix: NDM (Network Download Manager) holds the SOC service.
-    // Suspend all NDM tasks before calling socInit, then resume after.
+    // CFW fix: forcibly close any existing SOC session before opening ours.
+    // This resolves 0xE0E01BF5 caused by Rosalina/NDM holding the service.
+    {
+        Handle socHandle = 0;
+        if (R_SUCCEEDED(srvGetServiceHandle(&socHandle, "soc:U")))
+            svcCloseHandle(socHandle);
+    }
+
     ndmuInit();
     NDMU_SuspendScheduler(0);
     ndmuExit();
@@ -734,7 +740,7 @@ int main(void) {
     // Init network — larger buffer + retry
     u32 *soc_buf = NULL;
     Result rc = -1;
-    u32 buf_sizes[] = {0x100000, 0x80000, 0x200000};
+    u32 buf_sizes[] = {0x200000, 0x100000, 0x80000};
     for (int i = 0; i < 3 && R_FAILED(rc); i++) {
         if (soc_buf) { linearFree(soc_buf); soc_buf = NULL; }
         soc_buf = (u32 *)linearAlloc(buf_sizes[i]);
