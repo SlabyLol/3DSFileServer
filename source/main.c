@@ -722,8 +722,12 @@ int main(void) {
     gfxInitDefault();
     consoleInit(GFX_BOTTOM, NULL);
 
-    // On CFW, the ac:u service may hold the SOC service.
-    // Initialize and immediately exit ac:u to release it before socInit.
+    // CFW fix: NDM (Network Download Manager) holds the SOC service.
+    // Suspend all NDM tasks before calling socInit, then resume after.
+    ndmuInit();
+    NDMU_SuspendScheduler();
+    ndmuExit();
+
     acInit();
     acExit();
 
@@ -823,6 +827,10 @@ cleanup:
     if (server_fd >= 0) close(server_fd);
     socExit();
     linearFree(soc_buf);
+    // Resume NDM scheduler
+    ndmuInit();
+    NDMU_ResumeScheduler();
+    ndmuExit();
     gfxExit();
     return 0;
 }
