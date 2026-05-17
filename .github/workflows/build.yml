@@ -12,6 +12,8 @@ jobs:
     name: Build .3dsx with devkitARM
     runs-on: ubuntu-latest
 
+    # Use the official devkitPro Docker image — everything is pre-installed,
+    # no dkp-pacman sync needed (pkg.devkitpro.org blocks GitHub Actions IPs).
     container:
       image: devkitpro/devkitarm:latest
 
@@ -19,15 +21,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install 3DS libraries
-        run: |
-          dkp-pacman -Syu --noconfirm
-          dkp-pacman -S --noconfirm 3ds-dev
-
       - name: Build
         run: |
           export DEVKITPRO=/opt/devkitpro
           export DEVKITARM=$DEVKITPRO/devkitARM
+          export CTRULIB=$DEVKITPRO/libctru
           export PATH=$DEVKITARM/bin:$DEVKITPRO/tools/bin:$PATH
           make
 
@@ -63,4 +61,5 @@ jobs:
             - ✏️ Rename files/folders (confirmation required)
             - 📁 Create new folders (confirmation required)
             - 📄 Create new empty files (confirmation required)
+            - ✏️ Edit text files in browser (confirmation required)
             - **Port: 3760**
