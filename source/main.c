@@ -24,6 +24,8 @@
 #define COL_RESET "\x1b[0m"
 
 static int  server_fd      = -1;
+static int  soc_inited     = 0;
+static u32 *soc_buf_global = NULL;
 static char client_ip[32]  = {0};
 static char last_action[128] = {0};
 static int  confirm_pending  = 0;
@@ -722,48 +724,22 @@ int main(void) {
     gfxInitDefault();
     consoleInit(GFX_BOTTOM, NULL);
 
-    // CFW fix: forcibly close any existing SOC session before opening ours.
-    // This resolves 0xE0E01BF5 caused by Rosalina/NDM holding the service.
-    {
-        Handle socHandle = 0;
-        if (R_SUCCEEDED(srvGetServiceHandle(&socHandle, "soc:U")))
-            svcCloseHandle(socHandle);
-    }
-
-    ndmuInit();
-    NDMU_SuspendScheduler(0);
-    ndmuExit();
-
-    acInit();
-    acExit();
-
-    // Init network — larger buffer + retry
-    u32 *soc_buf = NULL;
-    Result rc = -1;
-    u32 buf_sizes[] = {0x200000, 0x100000, 0x80000};
-    for (int i = 0; i < 3 && R_FAILED(rc); i++) {
-        if (soc_buf) { linearFree(soc_buf); soc_buf = NULL; }
-        soc_buf = (u32 *)linearAlloc(buf_sizes[i]);
-        if (!soc_buf) continue;
-        rc = socInit(soc_buf, buf_sizes[i]);
-        if (R_FAILED(rc))
-            printf("socInit try %d failed: 0x%08lX\n", i+1, rc);
-    }
-    if (R_FAILED(rc)) {
-        printf("socInit failed: 0x%08lX\n\n", rc);
-        printf("Make sure:\n");
-        printf("- WiFi is ON\n");
-        printf("- No other network app\n");
-        printf("  is running\n\n");
-        printf("[START] to exit\n");
+    u32 *soc_buf = (u32 *)linearAlloc(0x100000);
+    soc_buf_global = soc_buf;
+    if (!soc_buf) {
+        printf("linearAlloc failed\n");
         gfxFlushBuffers(); gfxSwapBuffers();
-        while (aptMainLoop()) {
-            hidScanInput();
-            if (hidKeysDown() & KEY_START) break;
-        }
-        if (soc_buf) linearFree(soc_buf);
+        while (aptMainLoop()) { hidScanInput(); if (hidKeysDown() & KEY_START) break; }
         gfxExit();
         return 0;
+    }
+
+    Result rc = socInit(soc_buf, 0x100000);
+    soc_inited = R_SUCCEEDED(rc);
+    if (!soc_inited) {
+        printf("Note: socInit 0x%08lX\n", rc);
+        printf("Trying anyway...\n");
+        gfxFlushBuffers(); gfxSwapBuffers();
     }
 
     u32 ip = gethostid();
@@ -831,12 +807,8 @@ int main(void) {
 
 cleanup:
     if (server_fd >= 0) close(server_fd);
-    socExit();
-    linearFree(soc_buf);
-    // Resume NDM scheduler
-    ndmuInit();
-    NDMU_ResumeScheduler();
-    ndmuExit();
+    if (soc_inited) socExit();
+    if (soc_buf_global) linearFree(soc_buf_global);
     gfxExit();
     return 0;
 }
