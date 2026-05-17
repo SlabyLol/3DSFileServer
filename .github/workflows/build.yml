@@ -12,8 +12,6 @@ jobs:
     name: Build .3dsx with devkitARM
     runs-on: ubuntu-latest
 
-    # Use the official devkitPro Docker image — everything is pre-installed,
-    # no dkp-pacman sync needed (pkg.devkitpro.org blocks GitHub Actions IPs).
     container:
       image: devkitpro/devkitarm:latest
 
@@ -27,7 +25,11 @@ jobs:
           export DEVKITARM=$DEVKITPRO/devkitARM
           export CTRULIB=$DEVKITPRO/libctru
           export PATH=$DEVKITARM/bin:$DEVKITPRO/tools/bin:$PATH
-          make
+          make CC=$DEVKITARM/bin/arm-none-eabi-gcc \
+               CXX=$DEVKITARM/bin/arm-none-eabi-g++ \
+               AS=$DEVKITARM/bin/arm-none-eabi-as \
+               AR=$DEVKITARM/bin/arm-none-eabi-ar \
+               OBJCOPY=$DEVKITARM/bin/arm-none-eabi-objcopy
 
       - name: Upload .3dsx artifact
         uses: actions/upload-artifact@v4
