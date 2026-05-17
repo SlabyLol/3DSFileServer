@@ -722,27 +722,31 @@ int main(void) {
     gfxInitDefault();
     consoleInit(GFX_BOTTOM, NULL);
 
-    // Init network — socInit/socExit/linearAlloc are all declared in <3ds.h>
-    u32 *soc_buf = (u32 *)linearAlloc(0x100000);
-    if (!soc_buf) {
-        printf("linearAlloc failed!\n");
-        gfxFlushBuffers(); gfxSwapBuffers();
-        while (aptMainLoop()) {
-            hidScanInput();
-            if (hidKeysDown() & KEY_START) break;
-        }
-        gfxExit();
-        return 0;
+    // Init network — larger buffer + retry
+    u32 *soc_buf = NULL;
+    Result rc = -1;
+    u32 buf_sizes[] = {0x100000, 0x80000, 0x200000};
+    for (int i = 0; i < 3 && R_FAILED(rc); i++) {
+        if (soc_buf) { linearFree(soc_buf); soc_buf = NULL; }
+        soc_buf = (u32 *)linearAlloc(buf_sizes[i]);
+        if (!soc_buf) continue;
+        rc = socInit(soc_buf, buf_sizes[i]);
+        if (R_FAILED(rc))
+            printf("socInit try %d failed: 0x%08lX\n", i+1, rc);
     }
-    Result rc = socInit(soc_buf, 0x100000);
     if (R_FAILED(rc)) {
-        printf("socInit failed: 0x%08lX\n", rc);
-        linearFree(soc_buf);
+        printf("socInit failed: 0x%08lX\n\n", rc);
+        printf("Make sure:\n");
+        printf("- WiFi is ON\n");
+        printf("- No other network app\n");
+        printf("  is running\n\n");
+        printf("[START] to exit\n");
         gfxFlushBuffers(); gfxSwapBuffers();
         while (aptMainLoop()) {
             hidScanInput();
             if (hidKeysDown() & KEY_START) break;
         }
+        if (soc_buf) linearFree(soc_buf);
         gfxExit();
         return 0;
     }
