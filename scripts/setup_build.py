@@ -18,8 +18,8 @@ print("icon.png OK")
 T = chr(9)
 lines = [
     "APP_TITLE       := 3DS File Server",
-    "APP_DESCRIPTION := WiFi File Manager",
-    "APP_AUTHOR      := 3DSFileServer",
+    "APP_DESCRIPTION := WiFi File Manager and something",
+    "APP_AUTHOR      := DarkFox Co.",
     "",
     "TARGET  := 3ds-fileserver",
     "BUILD   := build",
