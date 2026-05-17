@@ -725,7 +725,7 @@ int main(void) {
     // CFW fix: NDM (Network Download Manager) holds the SOC service.
     // Suspend all NDM tasks before calling socInit, then resume after.
     ndmuInit();
-    NDMU_SuspendScheduler();
+    NDMU_SuspendScheduler(0);
     ndmuExit();
 
     acInit();
