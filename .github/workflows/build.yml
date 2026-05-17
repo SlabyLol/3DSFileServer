@@ -11,7 +11,6 @@ jobs:
   build:
     name: Build .3dsx with devkitARM
     runs-on: ubuntu-latest
-
     container:
       image: devkitpro/devkitarm:latest
 
@@ -19,7 +18,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Generate icon and Makefile
+      - name: Setup icon and Makefile
         run: python3 scripts/setup_build.py
 
       - name: Build
@@ -29,8 +28,8 @@ jobs:
           export CTRULIB=$DEVKITPRO/libctru
           export PATH=$DEVKITARM/bin:$DEVKITPRO/tools/bin:$PATH
           make
-          echo "=== Output files ==="
-          find . \( -name "*.3dsx" -o -name "*.smdh" -o -name "*.elf" \) | sort
+          echo "=== Output ==="
+          find . \( -name "*.3dsx" -o -name "*.smdh" \) | sort
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -50,19 +49,11 @@ jobs:
             **/*.smdh
           body: |
             ## 3DS File Server
-
             ### Installation
-            1. Copy `3ds-fileserver.3dsx` to the `/3ds/` folder on your SD card
-            2. Launch via the Homebrew Launcher
-            3. Open the IP + port shown on screen in your browser
-
+            1. Copy `3ds-fileserver.3dsx` to `/3ds/` on your SD card
+            2. Launch via Homebrew Launcher
+            3. Open the IP shown on screen in your browser
             ### Features
-            - 📂 Browse files & folders
-            - ⬆️ Upload from browser (confirmation required)
-            - ⬇️ Download files
-            - 🗑️ Delete files/folders (confirmation required)
-            - ✏️ Rename files/folders (confirmation required)
-            - 📁 Create new folders (confirmation required)
-            - 📄 Create new empty files (confirmation required)
-            - ✏️ Edit text files in browser (confirmation required)
-            - **Port: 3760**
+            - Browse, Upload, Download, Delete, Rename, New folder, New file, Edit
+            - All write actions need confirmation on console [A]/[B]
+            - Port 3760
