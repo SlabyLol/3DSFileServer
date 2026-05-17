@@ -1,6 +1,6 @@
 APP_TITLE       := 3DS File Server
 APP_DESCRIPTION := WiFi File Manager
-APP_AUTHOR      := 3DSFileServer
+APP_AUTHOR      := DarkFox
 
 TARGET  := 3ds-fileserver
 BUILD   := build
@@ -19,7 +19,6 @@ CXX     := $(PREFIX)g++
 AS      := $(PREFIX)as
 AR      := $(PREFIX)ar
 OBJCOPY := $(PREFIX)objcopy
-STRIP   := $(PREFIX)strip
 
 CTRULIB ?= $(DEVKITPRO)/libctru
 
@@ -28,38 +27,42 @@ CTRULIB ?= $(DEVKITPRO)/libctru
 #---------------------------------------------------------------------------------
 ARCH := -march=armv6k -mtune=mpcore -mfloat-abi=hard -mtp=soft
 
-CFLAGS   := -g -Wall -O2 -mword-relocations \
-             -fomit-frame-pointer -ffunction-sections \
-             $(ARCH) -D__3DS__ \
-             -I$(SOURCES) -I$(CTRULIB)/include
+CFLAGS := -g -Wall -O2 -mword-relocations \
+           -fomit-frame-pointer -ffunction-sections \
+           $(ARCH) -D__3DS__ \
+           -I$(SOURCES) -I$(CTRULIB)/include
 
-CXXFLAGS := $(CFLAGS) -fno-rtti -fno-exceptions -std=gnu++11
-ASFLAGS  := -g $(ARCH)
-LDFLAGS  := -specs=3dsx.specs -g $(ARCH) \
-             -L$(CTRULIB)/lib -lctru -lm
+# LDFLAGS: specs first, then arch — libs come AFTER objects in the link rule
+LDFLAGS := -specs=3dsx.specs -g $(ARCH) -L$(CTRULIB)/lib
+
+LIBS    := -lctru -lm
 
 #---------------------------------------------------------------------------------
-# Source files
+# Sources → objects
 #---------------------------------------------------------------------------------
-CFILES   := $(wildcard $(SOURCES)/*.c)
-OFILES   := $(patsubst $(SOURCES)/%.c,$(BUILD)/%.o,$(CFILES))
+CFILES  := $(wildcard $(SOURCES)/*.c)
+OFILES  := $(patsubst $(SOURCES)/%.c,$(BUILD)/%.o,$(CFILES))
 
 .PHONY: all clean
 
-all: $(BUILD) $(TARGET).3dsx
+all: $(TARGET).3dsx
 
 $(BUILD):
 	mkdir -p $(BUILD)
 
+# Compile
 $(BUILD)/%.o: $(SOURCES)/%.c | $(BUILD)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
+# Link — objects FIRST, then libs
 $(TARGET).elf: $(OFILES)
-	$(CC) $(LDFLAGS) -o $@ $^
+	$(CC) $(LDFLAGS) -o $@ $^ $(LIBS)
 
-$(TARGET).smdh: $(TARGET).elf
+# SMDH (app metadata, no icon needed)
+$(TARGET).smdh:
 	smdhtool --create "$(APP_TITLE)" "$(APP_DESCRIPTION)" "$(APP_AUTHOR)" $@
 
+# 3DSX
 $(TARGET).3dsx: $(TARGET).elf $(TARGET).smdh
 	3dsxtool $< $@ --smdh=$(TARGET).smdh
 
