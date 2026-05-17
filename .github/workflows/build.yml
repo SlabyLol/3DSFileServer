@@ -1,0 +1,66 @@
+name: Build 3DS File Server
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build .3dsx with devkitARM
+    runs-on: ubuntu-latest
+
+    container:
+      image: devkitpro/devkitarm:latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install 3DS libraries
+        run: |
+          dkp-pacman -Syu --noconfirm
+          dkp-pacman -S --noconfirm 3ds-dev
+
+      - name: Build
+        run: |
+          export DEVKITPRO=/opt/devkitpro
+          export DEVKITARM=$DEVKITPRO/devkitARM
+          export PATH=$DEVKITARM/bin:$DEVKITPRO/tools/bin:$PATH
+          make
+
+      - name: Upload .3dsx artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: 3ds-fileserver
+          path: |
+            3ds-fileserver.3dsx
+            3ds-fileserver.smdh
+          if-no-files-found: error
+
+      - name: Create release on tag
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            3ds-fileserver.3dsx
+            3ds-fileserver.smdh
+          body: |
+            ## 3DS File Server
+
+            ### Installation
+            1. Copy `3ds-fileserver.3dsx` to the `/3ds/` folder on your SD card
+            2. Launch via the Homebrew Launcher
+            3. Open the IP + port shown on screen in your browser
+
+            ### Features
+            - 📂 Browse files & folders
+            - ⬆️ Upload from browser (confirmation required)
+            - ⬇️ Download files
+            - 🗑️ Delete files/folders (confirmation required)
+            - ✏️ Rename files/folders (confirmation required)
+            - 📁 Create new folders (confirmation required)
+            - 📄 Create new empty files (confirmation required)
+            - **Port: 3760**
