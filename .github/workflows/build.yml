@@ -19,90 +19,16 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Generate icon and Makefile
+        run: python3 scripts/setup_build.py
+
       - name: Build
         run: |
           export DEVKITPRO=/opt/devkitpro
           export DEVKITARM=$DEVKITPRO/devkitARM
           export CTRULIB=$DEVKITPRO/libctru
           export PATH=$DEVKITARM/bin:$DEVKITPRO/tools/bin:$PATH
-
-          # Generate icon.png (required by smdhtool, must be 48x48 RGB PNG)
-          python3 - << 'PYEOF'
-import struct, zlib
-def chunk(tag, data):
-    s = struct.pack('>I', len(data)) + tag + data
-    return s + struct.pack('>I', zlib.crc32(s[4:]) & 0xffffffff)
-row = b'\x00' + bytes([0x33, 0x33, 0x44] * 48)
-raw = row * 48
-png = (b'\x89PNG\r\n\x1a\n'
-    + chunk(b'IHDR', struct.pack('>IIBBBBB', 48, 48, 8, 2, 0, 0, 0))
-    + chunk(b'IDAT', zlib.compress(raw))
-    + chunk(b'IEND', b''))
-open('icon.png', 'wb').write(png)
-print('icon.png generated OK')
-PYEOF
-
-          # Write Makefile with guaranteed tabs
-          python3 - << 'PYEOF'
-makefile = """\
-APP_TITLE       := 3DS File Server
-APP_DESCRIPTION := WiFi File Manager
-APP_AUTHOR      := 3DSFileServer
-
-TARGET  := 3ds-fileserver
-BUILD   := build
-SOURCES := source
-
-DEVKITPRO ?= /opt/devkitpro
-DEVKITARM ?= $(DEVKITPRO)/devkitARM
-export PATH := $(DEVKITARM)/bin:$(DEVKITPRO)/tools/bin:$(PATH)
-
-PREFIX  := arm-none-eabi-
-CC      := $(PREFIX)gcc
-AS      := $(PREFIX)as
-AR      := $(PREFIX)ar
-OBJCOPY := $(PREFIX)objcopy
-CTRULIB ?= $(DEVKITPRO)/libctru
-
-ARCH    := -march=armv6k -mtune=mpcore -mfloat-abi=hard -mtp=soft
-CFLAGS  := -g -Wall -O2 -mword-relocations -fomit-frame-pointer -ffunction-sections \\
-\t\t\t$(ARCH) -D__3DS__ -I$(SOURCES) -I$(CTRULIB)/include
-LDFLAGS := -specs=3dsx.specs -g $(ARCH) -L$(CTRULIB)/lib
-LIBS    := -lctru -lm
-
-CFILES  := $(wildcard $(SOURCES)/*.c)
-OFILES  := $(patsubst $(SOURCES)/%.c,$(BUILD)/%.o,$(CFILES))
-
-.PHONY: all clean
-
-all: $(TARGET).3dsx
-
-$(BUILD):
-\tmkdir -p $(BUILD)
-
-$(BUILD)/%.o: $(SOURCES)/%.c | $(BUILD)
-\t$(CC) $(CFLAGS) -c -o $@ $<
-
-$(TARGET).elf: $(OFILES)
-\t$(CC) $(LDFLAGS) -o $@ $^ $(LIBS)
-
-$(TARGET).smdh: icon.png
-\tsmdhtool --create "$(APP_TITLE)" "$(APP_DESCRIPTION)" "$(APP_AUTHOR)" icon.png $@
-
-$(TARGET).3dsx: $(TARGET).elf $(TARGET).smdh
-\t3dsxtool $< $@ --smdh=$(TARGET).smdh
-
-clean:
-\trm -rf $(BUILD) $(TARGET).3dsx $(TARGET).smdh $(TARGET).elf icon.png
-"""
-# Expand \t to real tab characters
-makefile = makefile.replace('\\t', '\t')
-open('Makefile', 'w').write(makefile)
-print('Makefile written OK')
-PYEOF
-
           make
-
           echo "=== Output files ==="
           find . \( -name "*.3dsx" -o -name "*.smdh" -o -name "*.elf" \) | sort
 
