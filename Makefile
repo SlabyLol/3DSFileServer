@@ -9,6 +9,21 @@ INCLUDES:= include
 ROMFS   := romfs
 
 #---------------------------------------------------------------------------------
+# devkitARM cross-compiler — never use the host cc/g++
+#---------------------------------------------------------------------------------
+DEVKITPRO ?= /opt/devkitpro
+DEVKITARM ?= $(DEVKITPRO)/devkitARM
+export PATH := $(DEVKITARM)/bin:$(DEVKITPRO)/tools/bin:$(PATH)
+
+PREFIX  := arm-none-eabi-
+CC      := $(PREFIX)gcc
+CXX     := $(PREFIX)g++
+AS      := $(PREFIX)as
+AR      := $(PREFIX)ar
+OBJCOPY := $(PREFIX)objcopy
+STRIP   := $(PREFIX)strip
+
+#---------------------------------------------------------------------------------
 # Code generation options
 #---------------------------------------------------------------------------------
 ARCH := -march=armv6k -mtune=mpcore -mfloat-abi=hard -mtp=soft
