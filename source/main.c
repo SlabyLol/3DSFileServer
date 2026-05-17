@@ -722,6 +722,11 @@ int main(void) {
     gfxInitDefault();
     consoleInit(GFX_BOTTOM, NULL);
 
+    // On CFW, the ac:u service may hold the SOC service.
+    // Initialize and immediately exit ac:u to release it before socInit.
+    acInit();
+    acExit();
+
     // Init network — larger buffer + retry
     u32 *soc_buf = NULL;
     Result rc = -1;
