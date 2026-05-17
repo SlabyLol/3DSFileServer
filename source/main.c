@@ -722,16 +722,27 @@ int main(void) {
     gfxInitDefault();
     consoleInit(GFX_BOTTOM, NULL);
 
-    // Init network
-    Result rc = SOC_Initialize((u32 *)memalign(0x1000, 0x100000), 0x100000);
-    if (R_FAILED(rc)) {
-        printf("SOC_Initialize failed: 0x%08lX\n", rc);
+    // Init network — socInit/socExit/linearAlloc are all declared in <3ds.h>
+    u32 *soc_buf = (u32 *)linearAlloc(0x100000);
+    if (!soc_buf) {
+        printf("linearAlloc failed!\n");
         gfxFlushBuffers(); gfxSwapBuffers();
         while (aptMainLoop()) {
             hidScanInput();
             if (hidKeysDown() & KEY_START) break;
         }
-        SOC_Shutdown();
+        gfxExit();
+        return 0;
+    }
+    Result rc = socInit(soc_buf, 0x100000);
+    if (R_FAILED(rc)) {
+        printf("socInit failed: 0x%08lX\n", rc);
+        linearFree(soc_buf);
+        gfxFlushBuffers(); gfxSwapBuffers();
+        while (aptMainLoop()) {
+            hidScanInput();
+            if (hidKeysDown() & KEY_START) break;
+        }
         gfxExit();
         return 0;
     }
@@ -801,7 +812,8 @@ int main(void) {
 
 cleanup:
     if (server_fd >= 0) close(server_fd);
-    SOC_Shutdown();
+    socExit();
+    linearFree(soc_buf);
     gfxExit();
     return 0;
 }
