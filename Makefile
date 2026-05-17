@@ -32,13 +32,11 @@ CFLAGS := -g -Wall -O2 -mword-relocations \
            $(ARCH) -D__3DS__ \
            -I$(SOURCES) -I$(CTRULIB)/include
 
-# LDFLAGS: specs first, then arch — libs come AFTER objects in the link rule
 LDFLAGS := -specs=3dsx.specs -g $(ARCH) -L$(CTRULIB)/lib
-
 LIBS    := -lctru -lm
 
 #---------------------------------------------------------------------------------
-# Sources → objects
+# Sources
 #---------------------------------------------------------------------------------
 CFILES  := $(wildcard $(SOURCES)/*.c)
 OFILES  := $(patsubst $(SOURCES)/%.c,$(BUILD)/%.o,$(CFILES))
@@ -50,21 +48,28 @@ all: $(TARGET).3dsx
 $(BUILD):
 	mkdir -p $(BUILD)
 
-# Compile
 $(BUILD)/%.o: $(SOURCES)/%.c | $(BUILD)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-# Link — objects FIRST, then libs
 $(TARGET).elf: $(OFILES)
 	$(CC) $(LDFLAGS) -o $@ $^ $(LIBS)
 
-# SMDH (app metadata, no icon needed)
-$(TARGET).smdh:
-	smdhtool --create "$(APP_TITLE)" "$(APP_DESCRIPTION)" "$(APP_AUTHOR)" $@
+# smdhtool requires: title, description, author, icon.png, output.smdh
+# Generate a minimal 48x48 grey PNG icon on the fly with ImageMagick
+$(TARGET).smdh: $(TARGET).elf
+	convert -size 48x48 xc:#333344 icon.png 2>/dev/null || \
+	  python3 -c "
+import struct, zlib
+def png(w,h,data):
+    def chunk(t,d): s=struct.pack('>I',len(d))+t+d; return s+struct.pack('>I',zlib.crc32(s[4:])&0xffffffff)
+    raw=b''.join(b'\x00'+bytes([0x33,0x33,0x44]*w) for _ in range(h))
+    return b'\x89PNG\r\n\x1a\n'+chunk(b'IHDR',struct.pack('>IIBBBBB',w,h,8,2,0,0,0))+chunk(b'IDAT',zlib.compress(raw))+chunk(b'IEND',b'')
+open('icon.png','wb').write(png(48,48,None))
+"
+	smdhtool --create "$(APP_TITLE)" "$(APP_DESCRIPTION)" "$(APP_AUTHOR)" icon.png $@
 
-# 3DSX
 $(TARGET).3dsx: $(TARGET).elf $(TARGET).smdh
 	3dsxtool $< $@ --smdh=$(TARGET).smdh
 
 clean:
-	rm -rf $(BUILD) $(TARGET).3dsx $(TARGET).smdh $(TARGET).elf
+	rm -rf $(BUILD) $(TARGET).3dsx $(TARGET).smdh $(TARGET).elf icon.png
